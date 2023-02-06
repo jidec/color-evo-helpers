@@ -1,0 +1,6 @@
+exportPattern("^[[:alpha:]]+")
+import(dplyr)
+import(grDevices)
+import(daymetr)
+import(sp)
+import(ape)
