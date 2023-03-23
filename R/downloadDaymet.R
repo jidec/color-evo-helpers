@@ -1,6 +1,10 @@
+#' Download USA Daymet daily climate data to data folder
+#'
+#' @description Doesn't download all data for all tiles, but rather tiles across a grid
+#' with size specified by cellsize_km
+#' @param cellsize_km the distance between each tile to grab
+#' @return nothing
 
-# download Daymet data containing daily climatic information at the resolution of cellsize_km
-# currently only gets data in the USA
 downloadDaymet <- function(cellsize_km){
     # prep inputs, download daymet data and merge the results into daymet.csv
     #library(daymetr)

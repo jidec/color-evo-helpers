@@ -10,3 +10,4 @@ License: What license is it under?
 Encoding: UTF-8
 LazyData: true
 Imports: dplyr,grDevices,daymetr,sp,ape
+RoxygenNote: 7.2.0

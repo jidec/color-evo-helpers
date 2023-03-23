@@ -1,6 +1,8 @@
+#' Add the ID of the closest Daymet tile to each row of a df containing cols "latitude" and "longitude"
+#' @description works by computing a dist matrix of obs to all Daymet tiles
+#' @param df dataframe
+#' @return df with new col for Daymet ids
 
-# add the id of the nearest Daymet tile to each observation using columns "latitude" and "longitude"
-# works by computing a dist matrix of obs to all Daymet tiles
 addClosestDaymetTileIDs <- function(df, nsubset=50000)
 {
   library(lubridate)
