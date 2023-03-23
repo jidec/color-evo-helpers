@@ -10,13 +10,30 @@ getPlotLogReg  <- function(df, response, formula){
     library(rsq)
     library(sjPlot)
     library(pROC)
-    m <- eval(parse(text=paste0("glm(",response,"~",formula,", data = df, family=binomial)")))
+    library(dplyr)
+
+    df <- scaleDf(df,all_numerics = TRUE)
+
+    df$id <- 1:nrow(df)
+    train <- df %>% dplyr::sample_frac(0.80)
+    test  <- dplyr::anti_join(df, train, by = 'id')
+
+    m <- eval(parse(text=paste0("glm(",response,"~",formula,", data = train, family=binomial)")))
     print(summary(m))
     #print("RSQ:")
     #print(rsq(m))
 
     # plot the coefficients and their confidence intervals
-    plot_model(m, type = "est", vline.color = "gray")
+    plot(plot_model(m))
+    #plot(plot_model(m, type = "est", vline.color = "gray"))
+    print(test)
+    test$pred <- predict(m, test, type="response")
+    test$good_pred <- ifelse(test$pred > 0.80, "good", "bad")
+    print(test)
+    print(confusionMatrix(test$good_pred, test$good))
+
+    #test_prob = predict(m, newdata = test, type = "response")
+    #test_roc = roc(test[,response] ~ test_prob, plot = TRUE, print.auc = TRUE)
 
     # predict response probabilities for the training data
     #train_prob <- predict(m, type = "response")

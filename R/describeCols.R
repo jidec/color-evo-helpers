@@ -19,7 +19,8 @@ describeCols <- function(df,colnames,factors=FALSE,scatter_xyz_names=NULL){
         print(name)
         vec <- as.vector(unlist(df[name]))
         if(factors){
-            plotHist(df,colname = name,table=TRUE)
+            barplot(table(df[,name]))
+            plotHist(df,colname = name,table=T)
         }
         else{
             print(summary(vec))
@@ -35,7 +36,7 @@ describeCols <- function(df,colnames,factors=FALSE,scatter_xyz_names=NULL){
     if(!factors){
         library(corrplot)
         #png(paste0("plots/","corrplot",".png"), width = 350, height = 350)
-        corrplot(cor(select(df,colnames)))
+        corrplot(cor(select(df,colnames),use="complete.obs"))
         #dev.off()
         #corrplot(cor(select(df,colnames)))
     }

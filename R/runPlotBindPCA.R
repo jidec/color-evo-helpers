@@ -4,7 +4,8 @@
 runPlotBindPCA <- function(df,pca_columns,colour_column=NULL){
     library(dplyr)
     library(ggfortify)
-    pca <- prcomp(dplyr::select(df,pca_columns))
+    df <- scaleDf(df,all_numerics = TRUE)
+    pca <- prcomp(na.omit(dplyr::select(df,pca_columns)))
     print(summary(pca))
     rotation <- pca$rotation
     print("Rotation:")

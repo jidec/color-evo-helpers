@@ -39,7 +39,7 @@ getPlotLM <- function(df,model_type="lmer",response,formula,scale=TRUE,plotmodel
     if(is.null(save_name)){
         save_name <- paste(deparse(substitute(df)),response,formula,".rds",sep='_')
     }
-    saveRDS(m,file=paste0("saved/models/",save_name))
+    #saveRDS(m,file=paste0("saved/models/",save_name))
 
     fullSummary(m)
 

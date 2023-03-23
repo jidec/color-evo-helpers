@@ -21,7 +21,8 @@ vifsAndStep <- function(df, response, formula,mixed=TRUE){
     print(summary(model))
     print(step(model))
     print("VIFS:")
-    print(vif(model))
+    print(vif(model,type='predictor'))
+
     if(any(vif(model) > 5)){
         print("Warning: some VIFs above 5, call vifsAndStep again with offenders removed from formula")
     }
