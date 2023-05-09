@@ -22,24 +22,21 @@
 # assessTraitsOnTree(df,trait_colname="black",trait_colname2="all_fore_pc1",tree_location="data/odonata.tre")
 # df$all_fore_pc1[is.nan(df$all_fore_pc1)] <- 0
 
-assessTraitsOnTree <- function(df,trait_colname,trait_colname2, tree_location,replace_underscores=T,remove_commas=T,remove_first_split=F){
+assessTraitsOnTree <- function(df,trait_colname,trait_colname2=NULL, tree_location,replace_underscores=T,remove_commas=T,remove_first_split=F,legend=TRUE){
     library(ape)
     library(phytools)
     library(dplyr)
-
-    # get tips
-    tips <- tree$tip.label
 
     trimmed_tuple <- trimDfToTree(df,tree_location,replace_underscores,remove_commas,remove_first_split)
 
     df <- trimmed_tuple[[1]]
     tree <- trimmed_tuple[[2]]
 
-    t1map <- plotOnTree(df,trait_colname)
+    t1map <- plotOnTree(df,tree,trait_colname,legend)
     if(!is.null(trait_colname2)){
-        t2map <- plotOnTree(df,trait_colname2)
+        t2map <- plotOnTree(df,trait_colname2,legend)
         par(mfrow=c(1,2))
-        plot(t1map,ftype="off",lwd=2)
+        plot(t1map,ftype="off",lwd=2)# rm leg
 
         plot(t2map,direction="leftwards",ftype="off",lwd=2)
 
@@ -72,7 +69,7 @@ assessTraitsOnTree <- function(df,trait_colname,trait_colname2, tree_location,re
 }
 
 # returns the trait, either discrete or continuous, modeled on the phylo
-plotOnTree <- function(df,trait_colname){
+plotOnTree <- function(df,tree,trait_colname,legend){
 
     # prep traits for asr
     trait <- as.vector(df[,trait_colname]) #change this to meanMD, meanHour, propNight etc
@@ -110,7 +107,7 @@ plotOnTree <- function(df,trait_colname){
     # if numeric
     if(class(trait) == "numeric"){
         # create contMap for all genera
-        obj <- contMap(tree,trait,method="anc.ML",fsize = 0)#,lims=c(-0.15,0.4874))
+        obj <- contMap(tree,trait,method="anc.ML",fsize = 0,legend=legend)#,lims=c(-0.15,0.4874))
         #errorbar.contMap(obj)
 
         cex <- 1

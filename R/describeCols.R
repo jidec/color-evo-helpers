@@ -10,28 +10,30 @@
 #'
 #' @return nothing
 #'
-describeCols <- function(df,colnames,factors=FALSE,scatter_xyz_names=NULL){
+describeCols <- function(df,colnames,factors=FALSE,scatter_xyz_names=NULL,corrplot_only=F){
     library(dplyr)
     library(car)
     library(plotly)
-    for(i in 1:length(colnames)){
-        name <- colnames[i]
-        print(name)
-        vec <- as.vector(unlist(df[name]))
-        if(factors){
-            barplot(table(df[,name]))
-            plotHist(df,colname = name,table=T)
+    if(!corrplot_only){
+        for(i in 1:length(colnames)){
+            name <- colnames[i]
+            print(name)
+            vec <- as.vector(unlist(df[name]))
+            if(factors){
+                barplot(table(df[,name]))
+                plotHist(df,colname = name,table=T)
+            }
+            else{
+                print(summary(vec))
+                qqPlot(vec,ylab=name)
+                #plotToFile(qq,name)
+                #plot(qq)
+                #sh <- sample(vec, 4999)
+                #print(shapiro.test(sh))
+                plotHist(df,colname = name)
+            }
+            print("")
         }
-        else{
-            print(summary(vec))
-            qqPlot(vec,ylab=name)
-            #plotToFile(qq,name)
-            #plot(qq)
-            #sh <- sample(vec, 4999)
-            #print(shapiro.test(sh))
-            plotHist(df,colname = name)
-        }
-        print("")
     }
     if(!factors){
         library(corrplot)

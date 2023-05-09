@@ -7,11 +7,18 @@
 fullSummary <- function(model){
     library(car)
     library(performance)
+
+    # always print summary
     print(summary(model))
-    print("VIFS:")
-    print(vif(model))
-    if(class(model) == "lmerModLmerTest"){
-        library(performance)
-        r2_nakagawa(model)
+
+    # if standard lmer. we can get vifs
+    if(class(model) == "lmerMod"){
+        print("VIFS:")
+        print(vif(model))
+    }
+
+    # if a lmer, pglmm, or glmmTMB print r2 nakagawa
+    if(class(model) == "lmerMod" | class(model) == "glmmTMB"){
+        print(r2_nakagawa(model))
     }
 }
