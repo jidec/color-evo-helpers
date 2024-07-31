@@ -3,7 +3,7 @@
 #' @param df dataframe
 #' @return df with new col for Daymet ids
 
-addClosestDaymetTileIDs <- function(df, nsubset=50000)
+addClosestDaymetTileIDs <- function(df, daymet_data, nsubset=50000)
 {
   library(lubridate)
   library(sf)
@@ -14,8 +14,8 @@ addClosestDaymetTileIDs <- function(df, nsubset=50000)
   print(paste("estimated max time:", t, "seconds"))
 
   # add year and day if not already
-  df$year <- year(df$datetimes)
-  df$yday <- yday(df$datetimes)
+  #df$year <- year(df$datetimes)
+  #df$yday <- yday(df$datetimes)
 
   # create subsets so dist mat doesn't overflow
   n <- nsubset
@@ -25,6 +25,7 @@ addClosestDaymetTileIDs <- function(df, nsubset=50000)
   # get unique cells to use for every loop
   dm_cells <- distinct(daymet_data, tile, .keep_all = TRUE)
   dm_cells_sf <- st_as_sf(dm_cells,coords = c("latitude", "longitude"))
+  st_crs(dm_cells_sf) <- 4326
 
   # loop through subsets, getting sf and dist matrix for each
   for(i in 1:length(subsets)){

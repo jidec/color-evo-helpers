@@ -1,72 +1,59 @@
-#' Download USA Daymet daily climate data to data folder
-#'
-#' @description Doesn't download all data for all tiles, but rather tiles across a grid
-#' with size specified by cellsize_km
-#' @param cellsize_km the distance between each tile to grab
-#' @return nothing
 
-downloadDaymet <- function(cellsize_km){
-    # prep inputs, download daymet data and merge the results into daymet.csv
-    #library(daymetr)
 
-    # get only contiguous US tiles
-    usa_tiles <- tile_outlines # from daymetr
-    usa_tiles <- cbind(usa_tiles$TileID,usa_tiles$XMin,usa_tiles$XMax,usa_tiles$YMin,usa_tiles$Ymax)
-    colnames(usa_tiles) <- c("id", "XMin","XMax", "YMin","YMax")
-    usa_tiles <- as.data.frame(usa_tiles)
-    #library(dplyr)
-    usa_tiles <- filter(usa_tiles, YMin > 24.396 & YMin < 49.38) #& YMax < -49.384 & XMin > -124.848 &)
-    usa_tiles <- filter(usa_tiles, XMin > -124.84 & XMin < -66.88)
-    tile_ids <- usa_tiles$id
+# this function is used to assemble daymet data given a set of lat lon locations (cells)
+# gridded_df must have cell, cell_lat, and cell_lon, representing either a grid cell or a targeted site (like a city with coordinate)
+downloadDaymet <- function(gridded_df, download_path, return=F){
 
-    #nrow(filter(usa_ants, latitude < 24.396 | latitude > 49.38 | longitude < -124.84 | longitude > -66.88))
+    library(daymetr)
+    library(dplyr)
+    library(sp)
+    library(stringr)
 
-    # set lat and long to the center of each tile
-    usa_tiles$X <- (usa_tiles$XMax + usa_tiles$XMin) / 2
-    usa_tiles$Y <- (usa_tiles$YMax + usa_tiles$YMin) / 2
-    #library(sp)
-    coordinates(usa_tiles) <- cbind(usa_tiles$X,usa_tiles$Y)
-
-    # create SpatialGridDataFrame from the usa_tiles
-    grid <- makegrid(usa_tiles, cellsize = cellsize_km / 110.574) #cellsize_miles / 69
-    grid$id <- 1:nrow(grid)
-    coordinates(grid) <- cbind(grid$x1,grid$x2)
-    gridded(grid) <- TRUE
-    grid <- as(grid, "SpatialGridDataFrame")
+    # get unique grid cells from the data
+    grid_cells <- gridded_df %>%
+        select(c(cell, cell_lat, cell_lon)) %>%
+        distinct(cell, .keep_all = TRUE)
 
     # write to .csv to feed into daymet func
-    points <- cbind(grid$id,grid$x2,grid$x1)
-    colnames(points) <- c("site","latitude","longitude")
-    points <- as.matrix(points)
-    write.csv(points,"data/points_for_daymet.csv",row.names = FALSE)
+    colnames(grid_cells) <- c("site","latitude","longitude")
+    grid_cells <- as.matrix(grid_cells)
+    grid_cells_path <- paste0(download_path,"/points_for_daymet.csv")
+    write.csv(grid_cells, grid_cells_path, row.names = FALSE)
+
+    csvs_path <- paste0(download_path,"/daymet")
+    # make folder
+    dir.create(csvs_path)
 
     # download 16500 (max) tiles from these points
     download_daymet_batch(
-        file_location = "data/points_for_daymet.csv",
-        start = 2020,
-        end = 2021,
+        file_location = grid_cells_path,
+        start = 2015,
+        end = 2023,
         internal = FALSE,
-        path = "data/daymet",
+        path = paste0(download_path,"/daymet"),
         simplify = FALSE
     )
 
+    csv_files <- dir(path= csvs_path, pattern='*.csv$', recursive = T)
+    csv_files <- paste0(csvs_path, "/", csv_files)
 
-    #library(dplyr)
-    csv_files <- dir(path= "data/daymet", pattern='*.csv$', recursive = T)
-    csv_files <- paste0("data/daymet/", csv_files)
     daymet_data <- data.frame()
     for(i in 1:length(csv_files)) {
-        daymet_data <- rbind(daymet_data, read_daymet(csv_files[i]))
+
+        # get full name of the csv
+        csv_name <- str_split(csv_files[i],"/")[[1]][length(str_split(csv_files[i],"/")[[1]])]
+        cell_id <- str_split(csv_name,"_")[[1]][1] # get the id as the first element of split on _
+
+        new_data <- read_daymet(csv_files[i])
+        new_data$cell <- rep(cell_id, nrow(new_data))
+        daymet_data <- rbind(daymet_data, new_data)
     }
 
-    # season starts
-    #install.packages("lubridate")
-    #library(lubridate)
-    #yday(mdy("12/1/2000"))
-    #yday(mdy("3/1/2000"))
-    #yday(mdy("6/1/2000"))
-    #yday(mdy("9/1/2000"))
+    data_file_path <- paste0(download_path, "/daymet.csv")
+    write.csv(daymet_data,data_file_path)
 
-    write.csv(daymet_data,file="data/daymet.csv")
+
+    if(return){
+        return(daymet_data)
+    }
 }
-
