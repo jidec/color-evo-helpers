@@ -6,8 +6,8 @@
 #' @param formula string containing formula i.e. lat + temp + precip
 #' @return the model
 
-getPlotLM <- function(df,model_type="lmer",response,formula,scale=TRUE,plotmodel_terms=c(),save_name=NULL,
-                      phy=NULL,tree_location=NULL,replace_underscores=T,remove_commas=T,remove_first_split=F,
+getPlotLM <- function(df,model_type="lmer",response,formula,scale=FALSE,plotmodel_terms=c(),save_name=NULL,
+                      tree=NULL,replace_underscores=T,remove_commas=T,remove_first_split=F,
                       log_transf_colnames=NULL,bayes=T){
     library(phyr)
     library(lme4)
@@ -36,14 +36,11 @@ getPlotLM <- function(df,model_type="lmer",response,formula,scale=TRUE,plotmodel
         }
     }
     if(model_type == "pglmm"){
-        if(is.null(phy)){
-            trimmed_tuple <- trimDfToTree(df,tree_location,replace_underscores,remove_commas,remove_first_split)
-            df <- trimmed_tuple[[1]]
-            tree <- trimmed_tuple[[2]]
-            phy <- tree
-        }
+        trimmed_tuple <- trimDfToTree(df,tree)
+        df <- trimmed_tuple[[1]]
+        tree <- trimmed_tuple[[2]]
         bayes_str <- as.character(bayes)
-        m <- eval(parse(text=paste0("pglmm(",response,"~",formula,", data = df, cov_ranef = list(species=phy), bayes=",bayes_str,")")))
+        m <- eval(parse(text=paste0("pglmm(",response,"~",formula,", data = df, cov_ranef = list(species=tree), bayes=",bayes_str,")")))
         if(bayes){
             plot(plot_bayes(m))
         }
