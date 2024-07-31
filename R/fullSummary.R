@@ -12,13 +12,13 @@ fullSummary <- function(model){
     print(summary(model))
 
     # if standard lmer. we can get vifs
-    if(class(model) == "lmerMod"){
+    if ("lmerMod" %in% class(model)){
         print("VIFS:")
         print(vif(model))
     }
 
     # if a lmer, pglmm, or glmmTMB print r2 nakagawa
-    if(class(model) == "lmerMod" | class(model) == "glmmTMB"){
+    if("lmerMod" %in% class(model) | "pglmm" %in% class(model)){
         print(r2_nakagawa(model))
     }
 }
