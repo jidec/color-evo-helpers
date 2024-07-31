@@ -10,60 +10,91 @@
 #'
 #' @return nothing
 
-# tree_location = "data/odonata.tre"
-# df = wings_sp
-# df$flight_type[is.na(df$flight_type)] <- "intermediate"
-# trait_colname = "brown"
-# trait_colname2 = "black"
-# replace_underscores=T
-# remove_commas=T
-# remove_first_split=F
-#
-# assessTraitsOnTree(df,trait_colname="black",trait_colname2="all_fore_pc1",tree_location="data/odonata.tre")
-# df$all_fore_pc1[is.nan(df$all_fore_pc1)] <- 0
+#df = wings_sp
+#tree = loadFixTree("data/dragonfly_tree.tre")
+#trait_colname = "blackbrown"
+#trait_colname2 = "brownyellow"
+#trait_colname = "bb_present"
+#trait_colname2 = "by_present"
+#legend = TRUE
 
-assessTraitsOnTree <- function(df,trait_colname,trait_colname2=NULL, tree_location,replace_underscores=T,remove_commas=T,remove_first_split=F,legend=TRUE){
+# REMEMBER that you must summarize the df to the species, genus etc. beforehand
+assessTraitsOnTree <- function(df, tree, trait_colname,trait_colname2=NULL,legend=TRUE){
     library(ape)
     library(phytools)
     library(dplyr)
+    library(caper)
 
-    trimmed_tuple <- trimDfToTree(df,tree_location,replace_underscores,remove_commas,remove_first_split)
+    trimmed_tuple <- trimDfToTree(df,tree)
 
     df <- trimmed_tuple[[1]]
     tree <- trimmed_tuple[[2]]
 
     t1map <- plotOnTree(df,tree,trait_colname,legend)
     if(!is.null(trait_colname2)){
-        t2map <- plotOnTree(df,trait_colname2,legend)
+        t2map <- plotOnTree(df,tree,trait_colname2,legend)
         par(mfrow=c(1,2))
         plot(t1map,ftype="off",lwd=2)# rm leg
 
         plot(t2map,direction="leftwards",ftype="off",lwd=2)
 
-        t <- cbind(df[,trait_colname],df[,trait_colname2])
-        rownames(t) <- df$clade
-
         if(TRUE){ #class(t[,1]) == "numeric" & class(t[,2]) == "numeric"
+            t <- cbind(df[,trait_colname],df[,trait_colname2])
+            rownames(t) <- df$clade
+            t <- as.matrix(t)
 
             library(nlme)
-            spp<-rownames(t)
+            # APPR -3
+            #fit.yx<-gls(blackbrown~brownyellow,data=as.data.frame(t),correlation=corBrownian(1,tree))
+            fit.yx <- eval(parse(text=paste0("gls(",trait_colname,"~",trait_colname2,", data=as.data.frame(t), correlation=corBrownian(1,tree))")))
+            #fit.yx<-gls(bb_present~by_present,data=as.data.frame(t),correlation=corBrownian(1,tree))
+            print(anova(fit.yx))
+            print(r2(fit.yx))
 
-            # create a correlation structure that defines the distr of the residuals
-            # to be in accordance with our phylogeny
-            corBM <- corBrownian(phy=tree,form=~spp)
-
-            # run pgls for cor between traits
-            m <- eval(parse(text=paste0("gls(",trait_colname,"~",trait_colname2,", data = df)")))
-            #m <- gls(black ~ brown,data=df,)
-            print(summary(m))
-
+            # APRR -2
             #obj<-phyl.vcv(t,vcv(tree),1)
             ## correlation between x & y
-            #r.xy<-cov2cor(obj$R)
-
+            #r.xy<-cov2cor(obj$R)[trait_colname,trait_colname2]
             ## t-statistic & P-value
-            #t.xy<-r.xy*sqrt((Ntip(phy2)-2)/(1-r.xy^2))
-            #P.xy<-2*pt(abs(t.xy),df=Ntip(phy2)-2,lower.tail=F)
+            #t.xy<-r.xy*sqrt((Ntip(tree)-2)/(1-r.xy^2))
+            #P.xy<-2*pt(abs(t.xy),df=Ntip(tree)-2,lower.tail=F)
+            #print(P.xy)
+
+            # APPR -1 LOL
+            # Assuming your data frame is named `traits_data` and has columns `trait1` and `trait2`
+            #pic_trait1 <- pic(t[,2], tree)
+            #pic_trait2 <- pic(t[,1], tree)
+
+            #print(cor.test(pic_trait1, pic_trait2))
+
+            # APPR 0
+
+            # Prepare your comparative data
+            #comp_data <- comparative.data(phy=tree, data=df, names.col="clade")
+
+            # Fit a PGLS model assessing the correlation between two traits
+            #model <- pgls(blackbrown ~ brownyellow, data=comp_data, lambda="ML")
+
+            # Display the summary of the model
+            #print(summary(model))
+
+            # APPR 1
+            #library(nlme)
+            #spp <- rownames(t)
+
+            # run pgls for cor between traits
+            #m <- eval(parse(text=paste0("gls(",trait_colname,"~",trait_colname2,", data = df, correlation=corBrownian(phy=tree, form=~clade))")))
+            #print(summary(m))
+
+            # APPR 2
+            # Calculate the phylogenetic correlation matrix
+            #v <- vcv(tree,  model = "Brownian", corr = TRUE)
+
+            # Fit the GLS model using the lm.gls() function
+            #z <- lm.gls(x = df[trait_colname], y = df[trait_colname2], v = v)
+
+            #print(summary(z$lm.fit))
+            #print(anova(z$lm.fit))
         }
     }
 }
@@ -74,7 +105,7 @@ plotOnTree <- function(df,tree,trait_colname,legend){
     # prep traits for asr
     trait <- as.vector(df[,trait_colname]) #change this to meanMD, meanHour, propNight etc
     trait <- unlist(trait)
-    names(trait) <- df$species
+    names(trait) <- df$clade
 
     # unlist tree tips
     tree$tip.label <- unlist(tree$tip.label)
@@ -110,6 +141,7 @@ plotOnTree <- function(df,tree,trait_colname,legend){
         obj <- contMap(tree,trait,method="anc.ML",fsize = 0,legend=legend)#,lims=c(-0.15,0.4874))
         #errorbar.contMap(obj)
 
+        obj<-setMap(obj,colors=c("grey","black"))
         cex <- 1
         #if(!tipnames){
         #    cex <- 0
