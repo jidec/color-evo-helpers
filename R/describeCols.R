@@ -10,7 +10,7 @@
 #'
 #' @return nothing
 #'
-describeCols <- function(df,colnames,factors=FALSE,scatter_xyz_names=NULL,corrplot_only=F){
+describeCols <- function(df,colnames,factors=FALSE,scatter_xyz_names=NULL,qq_plot=F,corrplot_only=F){
     library(dplyr)
     library(car)
     library(plotly)
@@ -25,7 +25,10 @@ describeCols <- function(df,colnames,factors=FALSE,scatter_xyz_names=NULL,corrpl
             }
             else{
                 print(summary(vec))
-                qqPlot(vec,ylab=name)
+                if(qq_plot){
+                    qqPlot(vec,ylab=name)
+                }
+
                 #plotToFile(qq,name)
                 #plot(qq)
                 #sh <- sample(vec, 4999)
