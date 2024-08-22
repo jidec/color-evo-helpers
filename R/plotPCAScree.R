@@ -15,7 +15,7 @@ plotPCAScree <- function(pca){
     )
 
     # Plot the proportion of variance explained by each principal component
-    ggplot(pca_df, aes(x = as.numeric(Principal_Component), y = Variance_Explained)) +
+    p <- ggplot(pca_df, aes(x = as.numeric(Principal_Component), y = Variance_Explained)) +
         geom_bar(stat = "identity", fill = "steelblue") +
         geom_line(aes(y = Cumulative_Variance_Explained, group = 1), color = "red", size = 1) +
         geom_point(aes(y = Cumulative_Variance_Explained), color = "red", size = 2) +
@@ -26,4 +26,6 @@ plotPCAScree <- function(pca){
         ) +
         theme_minimal() +
         scale_x_continuous(breaks = 1:num_pcs_to_plot)
+    plot(p)
+    return(p)
 }

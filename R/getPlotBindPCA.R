@@ -25,7 +25,7 @@ getPlotBindPCA <- function(df, pca_columns, colour_column = NULL) {
     # Bind PCA results to the complete data
     df_complete <- cbind(df_complete, pca$x)
 
-    plotPCAScree(pca)
+    plot(plotPCAScree(pca))
 
     # Plot PCA
     plot(autoplot(pca, data = df_complete, colour = colour_column, loadings = TRUE, loadings.label = TRUE))

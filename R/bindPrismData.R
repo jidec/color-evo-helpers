@@ -16,7 +16,8 @@
 # and year column
 # currently based on 250 km cell width
 
-bindPrismData <- function(df,prism_dir,cell_width_km=250,variable="tmean",avg_of_years=NULL){
+bindPrismData <- function(df,prism_dir,cell_width_km=250,variable="tmean",new_var_colname="prism_tmean",
+                          avg_of_years=NULL){
     library(dplyr)
     library(geosphere)
     library(raster)
@@ -96,5 +97,6 @@ bindPrismData <- function(df,prism_dir,cell_width_km=250,variable="tmean",avg_of
     bound <- df %>%
         left_join(uniq %>% dplyr::select(season, year, cell, value), by = c("season", "year", "cell"))
 
+    bound <- bound %>% rename(new_var_colname = value)
     return(bound)
 }
