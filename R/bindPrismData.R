@@ -1,102 +1,109 @@
+bindPrismData <- function(df,
+                          prism_dir,
+                          cell_width_km = 250,
+                          variable = "tmean",
+                          new_var_colname = "prism_tmean",
+                          avg_of_years = NULL,
+                          seasonal = TRUE) {
+    library(dplyr); library(geosphere)
+    library(raster); library(sf); library(rgdal)
+    library(prism); library(colorEvoHelpers)
 
-# function should take the gridded sscs Df (with lat lon and size of cells)
-# for each unique grid cell, create a shape file representing that grid cell
-# then for each unique season cell OR season year cell:
-#   get the
-
-#df = readRDS("D:/GitProjects/inat-daily-activity-analysis/_targets/objects/sscs2_initial")
-#cell_width_km = 250
-#avg_of_years = 2018:2020
-#avg_of_years=NULL
-#variable="tmean"
-#prism::prism_set_dl_dir("D:/GitProjects/inat-daily-activity-analysis/data/prism")
-
-# df must be gridded (with cell, cell_lat, and cell_lon columns)
-# must have a season column where seasons are "1", "2", "3", "4"
-# and year column
-# currently based on 250 km cell width
-
-bindPrismData <- function(df,prism_dir,cell_width_km=250,variable="tmean",new_var_colname="prism_tmean",
-                          avg_of_years=NULL){
-    library(dplyr)
-    library(geosphere)
-    library(raster)
-    library(sf)
-    library(rgdal)
-    library(prism)
-    library(colorEvoHelpers)
-
-    # set prism dir
+    # 1) set prism dir & filter to contiguous US + years window
     prism_set_dl_dir(prism_dir)
-
-    # keep only inside contiguous USA for Prism
-    # Assuming your data frame is named df
     df <- df %>%
-        filter(cell_lat >= 24.52, cell_lat <= 49.38,  # Latitude of the contiguous USA
+        filter(cell_lat >= 24.52, cell_lat <= 49.38,
                cell_lon >= -125.0, cell_lon <= -66.94,
-               year >= 2015, year < 2024)  # Longitude of the contiguous USA
+               year >= 2015, year < 2024)
 
-    # keep only cols we need
-    df2 <- df %>% dplyr::select(year,season,cell,cell_lat,cell_lon)
-
-    # get uniq cell, season, year combinations
-    uniq <- df2 %>% distinct(cell,season,year,.keep_all = TRUE) %>% filter(!is.na(cell_lat) & !is.na(cell_lon))
-
-    # bind polys
-    uniq <- uniq %>% rowwise() %>%
-        mutate(cell_poly = list(cellPolyFromLatLonWidth(cell_lat, cell_lon, cell_width_km)))
-
-    if(!is.null(avg_of_years)){
-        df <- df %>% dplyr::select(season,cell,cell_lat,cell_lon)
-        uniq <- df %>% distinct(cell,season,.keep_all = TRUE) %>% filter(!is.na(cell_lat) & !is.na(cell_lon))
+    # 2) prep unique periods
+    df2 <- df %>% select(year, season, cell, cell_lat, cell_lon)
+    if (seasonal) {
+        if (!is.null(avg_of_years)) {
+            # one row per cell – season, average across all years in avg_of_years
+            uniq <- df2 %>%
+                filter(year %in% avg_of_years) %>%
+                distinct(cell, season, .keep_all = TRUE)
+            period_years <- rep(list(avg_of_years), nrow(uniq))
+        } else {
+            # one row per cell–season–year
+            uniq <- df2 %>%
+                distinct(cell, season, year, .keep_all = TRUE)
+            period_years <- as.list(uniq$year)
+        }
+        # corresponding months for each season
+        period_months <- lapply(uniq$season, function(ss) switch(
+            ss, "1" = c(12,1,2), "2" = c(3,4,5),
+            "3" = c(6,7,8), "4" = c(9,10,11)
+        ))
+    } else {
+        if (!is.null(avg_of_years)) {
+            # one row per cell, averaging all months & years in avg_of_years
+            uniq <- df2 %>%
+                filter(year %in% avg_of_years) %>%
+                distinct(cell, .keep_all = TRUE)
+            period_years  <- rep(list(avg_of_years), nrow(uniq))
+        } else {
+            # one row per cell–year, annual mean across all 12 months
+            uniq <- df2 %>%
+                distinct(cell, year, .keep_all = TRUE)
+            period_years <- as.list(uniq$year)
+        }
+        # always all months
+        period_months <- replicate(nrow(uniq), 1:12, simplify = FALSE)
     }
 
-    getYearSeasonPrismData <- function(year,season,cell_poly,variable){
-        cell_poly=poly
-        mons <- switch(season,
-                       "1" = c(12,1,2),
-                       "2" = c(3,4,5),
-                       "3" = c(6,7,8),
-                       "4" = c(9,10,11))
-        pd <- prism_archive_subset(variable, "monthly", mon = mons, years=year)
+    # 3) build polygons for each grid-cell
+    uniq <- uniq %>%
+        rowwise() %>%
+        mutate(cell_poly = list(
+            cellPolyFromLatLonWidth(cell_lat, cell_lon, cell_width_km)
+        )) %>%
+        ungroup()
+
+    # 4) helper to pull & average prism files for a given years+months+polygon
+    getPrismValue <- function(years, months, cell_poly, variable) {
+        pd <- prism_archive_subset(variable, "monthly",
+                                   mon = months, years = years)
         files <- pd_to_file(pd)
-        #print(files)
-        raster_avg <- calc(stack(raster(files[1]), raster(files[2]), raster(files[3])),fun=mean)
-        # Crop raster to the extent of the polygon to reduce computation
-        r_crop <- crop(raster_avg, extent(cell_poly))
-        # Mask the cropped raster with the polygon to extract values within the polygon area
-        r_mask <- mask(r_crop, cell_poly)
-        # Calculate the average value within the polygon
-        avg_value <- cellStats(r_mask, stat='mean')
-        return(avg_value)
+        ras <- stack(lapply(files, raster))
+        ras_mean <- calc(ras, fun = mean, na.rm = TRUE)
+        crop_r <- crop(ras_mean, extent(cell_poly))
+        mask_r <- mask(crop_r, cell_poly)
+        cellStats(mask_r, stat = 'mean', na.rm = TRUE)
     }
 
-    uniq$value <- rep(NA, length(uniq$cell_poly))
-    polys = as.list(uniq$cell_poly)
-    print(paste0("Number of cell-year/season combos to get Prism data for: ",length(polys)))
-    for(i in 1:length(polys)){
-        print(i)
-        poly <- polys[i][[1]]
-        year <- uniq$year[i]
-        season <- uniq$season[i]
-        uniq$value[i] <- getYearSeasonPrismData(year=year,season=season,cell_poly = poly,variable=variable)
+    # 5) loop through each period
+    uniq$value <- mapply(
+        FUN = getPrismValue,
+        years     = period_years,
+        months    = period_months,
+        cell_poly = uniq$cell_poly,
+        MoreArgs  = list(variable = variable),
+        SIMPLIFY  = TRUE
+    )
+
+    # 6) join back to original df
+    if (seasonal) {
+        if (!is.null(avg_of_years)) {
+            join_cols <- c("cell", "season")
+        } else {
+            join_cols <- c("cell", "season", "year")
+        }
+    } else {
+        if (!is.null(avg_of_years)) {
+            join_cols <- "cell"
+        } else {
+            join_cols <- c("cell", "year")
+        }
     }
 
-    # normally - feed the year column in
-    #if(is.null(avg_of_years)){
-    #    uniq <- uniq %>% rowwise() %>%
-    #        mutate(value=getYearSeasonPrismData(year,season,poly))
-    #}
-    #else{ # if averaging across years - give the same set of years to avg across for every call
-    #    uniq <- uniq %>% rowwise() %>%
-    #        mutate(value=getYearSeasonPrismData(avg_of_years,season,poly))
-    #}
-
-    uniq <- uniq %>% ungroup()
-    # then bind it back to the original data
     bound <- df %>%
-        left_join(uniq %>% dplyr::select(season, year, cell, value), by = c("season", "year", "cell"))
+        left_join(
+            uniq %>% select(all_of(join_cols), value),
+            by = join_cols
+        ) %>%
+        rename(!!new_var_colname := value)
 
-    bound <- bound %>% rename(new_var_colname = value)
     return(bound)
 }

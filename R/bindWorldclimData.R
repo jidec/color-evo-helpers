@@ -1,28 +1,47 @@
-# Define the bindWorldclimData function
-bindWorldclimData <- function(df, worldclim_var="bio", var_num=1, new_var_colname="tmax", res = 10, path = 'D:/bioclim_data') {
+bindWorldClimData <- function(df, var = "bio", bioclim_var_num = 1, new_var_colname = "tmax",
+                              res = 10, path = 'D:/bioclim_data', month = NULL, cellsize_km = NULL) {
 
-    library(geodata)
-    library(terra)
-    library(dplyr)
+    # Download WorldClim data (SpatRaster)
+    clim_data <- geodata::worldclim_global(var = var, res = res, path = path)
 
-    # Download WorldClim data for the specified variable and resolution
-    worldclim_data <- worldclim_global(var = worldclim_var, res = res, path = path)
+    # Pick layer
+    selected_layer <- if (identical(var, "bio")) {
+        clim_data[[bioclim_var_num]]
+    } else if (var %in% c("srad", "vapr", "tavg", "tmin", "tmax", "wind")) {
+        if (is.null(month)) {
+            # mean over layers (SpatRaster) – keep it explicit
+            terra::app(clim_data, fun = mean, na.rm = TRUE)
+        } else {
+            clim_data[[month]]
+        }
+    } else {
+        stop("Unsupported var: use 'bio', 'srad', 'vapr', 'tavg', 'tmin', 'tmax', or 'wind'.")
+    }
 
-    selected_layer <- worldclim_data[[var_num]]
+    # Guard column names
+    if (!all(c("longitude", "latitude") %in% names(df))) {
+        stop("df must have columns 'longitude' and 'latitude'")
+    }
 
-    # Convert the dataframe to a SpatVector
-    points <- vect(df, geom = c("longitude", "latitude"), crs = crs(selected_layer))
+    # Build points in the raster's CRS
+    pts_ll <- terra::vect(df, geom = c("longitude", "latitude"),
+                          crs = terra::crs(selected_layer))
 
-    # Extract WorldClim data for the given points
-    extracted_data <- extract(selected_layer, points)
+    # Extract (optionally with buffering)
+    if (!is.null(cellsize_km)) {
+        # project both to a metric CRS for meter-based buffering
+        pts_m <- terra::project(pts_ll, "EPSG:3857")
+        rad_m <- (cellsize_km * 1000) / 2
+        buf_m <- terra::buffer(pts_m, width = rad_m)
 
-    # Combine the original dataframe with the WorldClim data
-    result_df <- cbind(df, extracted_data[, -1])  # Remove the ID column from the extraction results
+        r_m <- terra::project(selected_layer, "EPSG:3857", method = "bilinear")
+        extracted <- terra::extract(r_m, buf_m, fun = mean, na.rm = TRUE)
+    } else {
+        extracted <- terra::extract(selected_layer, pts_ll)
+    }
 
-    # Rename the last column
-    new_name <- new_var_colname
-    last_col_name <- names(result_df)[ncol(result_df)]
-    result_df <- result_df %>% rename(!!new_name := all_of(last_col_name))
-
-    return(result_df)
+    # Bind back and rename
+    out <- cbind(df, extracted[, -1, drop = FALSE])
+    names(out)[ncol(out)] <- new_var_colname
+    return(out)
 }

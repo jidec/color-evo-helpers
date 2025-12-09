@@ -1,7 +1,7 @@
 # run a PCA, plot it, and bind it to the dataframe
 # returns a tuple of the DF with PCs bound at [[1]], the rotation at [[2]] and the loadings at [[3]]
 # pca_columns is a vector
-getPlotBindPCA <- function(df, pca_columns, colour_column = NULL) {
+getPlotBindPCA <- function(df, pca_columns, colour_column = NULLw) {
     library(dplyr)
     library(ggfortify)
 
@@ -25,13 +25,15 @@ getPlotBindPCA <- function(df, pca_columns, colour_column = NULL) {
     # Bind PCA results to the complete data
     df_complete <- cbind(df_complete, pca$x)
 
-    plot(plotPCAScree(pca))
+    p <- plotPCAScree(pca)
+    plot(p)
 
     # Plot PCA
-    plot(autoplot(pca, data = df_complete, colour = colour_column, loadings = TRUE, loadings.label = TRUE))
+    #autoplot(pca, data = df_complete, colour = colour_column, loadings = TRUE, loadings.label = TRUE)
+
 
     # Return the data frame with PCA components, the rotation matrix, and the loadings
-    return(list(df_complete, rotation, pca$loadings))
+    return(list(df_complete, rotation, pca$loadings,pca,p))
 }
 
 #data(iris)
